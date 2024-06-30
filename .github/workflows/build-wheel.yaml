@@ -17,28 +17,8 @@ env:
   GH_REPO: ${{ github.repository }}
 
 jobs:
-  draft_release:
-    name: Create or Get Release
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.ensure_release.outputs.id }}
-    steps:
-    - name: Ensure draft release
-      id: ensure_release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        release_id=$(gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --json id -q .id 2>/dev/null || echo "")
-        if [ -n "$release_id" ]; then
-          echo "id=$release_id" >> $GITHUB_OUTPUT
-        else
-          release_id=$(gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft)
-          echo "id=$release_id" >> $GITHUB_OUTPUT
-        fi
-
   build_pure_wheel:
     name: Build pure Python wheel
-    needs: draft_release
     runs-on: ubuntu-latest
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
@@ -75,17 +55,26 @@ jobs:
     - name: Upload wheel to release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload ${{ needs.draft_release.outputs.release_id }} dist/*.whl --clobber
+      run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl --clobber
 
-    - name: Publish Release
+  draft_release:
+    name: Ensure Release
+    runs-on: ubuntu-latest
+    needs: [build_pure_wheel]
+    if: needs.build_pure_wheel.outputs.is_pure != 'true'
+    steps:
+    - name: Ensure draft release
+      id: ensure_release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release edit ${{ needs.draft_release.outputs.release_id }} --draft=false
+      run: |
+        if ! gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} &>/dev/null; then
+          gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft --title "${{ github.event.inputs.package_name }} ${{ github.event.inputs.package_version }}" --generate-notes
+        fi
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
-    needs: [draft_release, build_pure_wheel]
-    if: needs.build_pure_wheel.outputs.is_pure != 'true'
+    needs: [draft_release]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -110,15 +99,14 @@ jobs:
     - name: Upload wheels to release
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload ${{ needs.draft_release.outputs.release_id }} dist/*.whl --clobber
+      run: gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl --clobber
 
   publish_release:
     name: Publish Release
-    needs: [draft_release, build_wheels]
+    needs: [build_wheels]
     runs-on: ubuntu-latest
-    if: always()
     steps:
-      - name: Publish Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit ${{ needs.draft_release.outputs.release_id }} --draft=false
+    - name: Publish Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release edit ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft=false
