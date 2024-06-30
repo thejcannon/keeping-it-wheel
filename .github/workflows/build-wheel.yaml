@@ -14,8 +14,28 @@ permissions:
   contents: write
 
 jobs:
+  draft_release:
+    name: Create or Get Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.ensure_release.outputs.id }}
+    steps:
+    - name: Ensure draft release
+      id: ensure_release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        release_id=$(gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --json id -q .id 2>/dev/null || echo "")
+        if [ -n "$release_id" ]; then
+          echo "id=$release_id" >> $GITHUB_OUTPUT
+        else
+          release_id=$(gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft)
+          echo "id=$release_id" >> $GITHUB_OUTPUT
+        fi
+
   build_pure_wheel:
     name: Build pure Python wheel
+    needs: draft_release
     runs-on: ubuntu-latest
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
@@ -49,16 +69,19 @@ jobs:
           echo "is_pure=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Create Release
-      if: steps.check_pure.outputs.is_pure == 'true'
-      run: cd dist && gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} *.whl
+    - name: Upload wheel to release
       env:
         GH_TOKEN: ${{ github.token }}
-        GH_REPO: ${{ github.repository }}
+      run: gh release upload ${{ needs.draft_release.outputs.release_id }} dist/*.whl --clobber
+
+    - name: Publish Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release edit ${{ needs.draft_release.outputs.release_id }} --draft=false
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
-    needs: build_pure_wheel
+    needs: [draft_release, build_pure_wheel]
     if: needs.build_pure_wheel.outputs.is_pure != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
@@ -81,8 +104,18 @@ jobs:
         package-dir: .
         output-dir: dist
 
-    - name: Create Release
-      run: cd dist && gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} *.whl
+    - name: Upload wheels to release
       env:
         GH_TOKEN: ${{ github.token }}
-        GH_REPO: ${{ github.repository }}
+      run: gh release upload ${{ needs.draft_release.outputs.release_id }} dist/*.whl --clobber
+
+  publish_release:
+    name: Publish Release
+    needs: [draft_release, build_wheels]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ needs.draft_release.outputs.release_id }} --draft=false
