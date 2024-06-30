@@ -97,9 +97,13 @@ jobs:
         output-dir: dist
 
     - name: Upload wheels to release
+      shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl --clobber
+      run: |
+        for wheel in dist/*.whl; do
+          gh release upload ${{ needs.create_or_get_release.outputs.release_id }} "$wheel" --clobber
+        done
 
   publish_release:
     name: Publish Release
