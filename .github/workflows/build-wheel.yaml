@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
-
     steps:
     - name: Set up Python
       uses: actions/setup-python@v4
