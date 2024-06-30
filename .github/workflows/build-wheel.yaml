@@ -52,9 +52,10 @@ jobs:
         fi
 
     - name: Upload wheel to release
+      if: steps.check_pure.outputs.is_pure == 'true'
       env:
         GH_TOKEN: ${{ github.token }}
-      run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl --clobber
+      run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl
 
   draft_release:
     name: Ensure Release
