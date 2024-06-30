@@ -33,7 +33,7 @@ jobs:
 
     - name: Download sdist
       run: |
-        pip download --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
         tar -xvf ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
         mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}/* .
         rm ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
@@ -83,7 +83,7 @@ jobs:
     steps:
     - name: Download sdist
       run: |
-        pip download --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
         tar -xvf ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
         mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}/* .
         rm ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
