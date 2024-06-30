@@ -24,9 +24,9 @@ jobs:
     - name: Download sdist
       run: |
         pip download --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
-        tar -xvf *.tar.gz
-        mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}/* .
-        rm *.tar.gz
+        tar -xvf ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}.tar.gz
+        mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} .
+        rm ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}.tar.gz
 
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.19.1
