@@ -25,7 +25,7 @@ jobs:
       run: |
         pip download --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
         tar -xvf ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
-        mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} .
+        mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}/* .
         rm ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}.tar.gz
 
     - name: Build wheels
