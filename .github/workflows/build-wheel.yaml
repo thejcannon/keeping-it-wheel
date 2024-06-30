@@ -13,6 +13,9 @@ on:
 permissions:
   contents: write
 
+env:
+  GH_REPO: ${{ github.repository }}
+
 jobs:
   draft_release:
     name: Create or Get Release
