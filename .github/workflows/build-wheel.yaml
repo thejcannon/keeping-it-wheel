@@ -48,10 +48,9 @@ jobs:
 
     - name: Upload pure Python wheel
       if: steps.check_pure.outputs.is_pure == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: pure-python-wheel
-        path: dist/*.whl
+      run: cd dist && gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} *.whl
+      env:
+        GH_TOKEN: ${{ GitHub.token }}
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
