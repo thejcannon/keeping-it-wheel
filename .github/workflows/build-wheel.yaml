@@ -102,7 +102,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         for wheel in dist/*.whl; do
-          gh release upload ${{ needs.create_or_get_release.outputs.release_id }} "$wheel" --clobber
+          gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} "$wheel" --clobber
         done
 
   publish_release:
