@@ -1,0 +1,42 @@
+name: Build and Upload Wheel with cibuildwheel
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: 'PyPI package name'
+        required: true
+      package_version:
+        description: 'Package version'
+        required: true
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Download sdist
+      run: |
+        pip download --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+        tar -xvf *.tar.gz
+        mv ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }}/* .
+        rm *.tar.gz
+
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.19.1
+      env:
+        CIBW_REPAIR_WHEEL_COMMAND: ""
+      with:
+        package-dir: .
+        output-dir: wheelhouse
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+        path: ./wheelhouse/*.whl
