@@ -49,7 +49,7 @@ jobs:
           echo "is_pure=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Upload pure Python wheel
+    - name: Create Release
       if: steps.check_pure.outputs.is_pure == 'true'
       run: cd dist && gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} *.whl
       env:
@@ -81,7 +81,8 @@ jobs:
         package-dir: .
         output-dir: dist
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-        path: ./dist/*.whl
+    - name: Create Release
+      run: cd dist && gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} *.whl
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
