@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       package_name:
-        description: 'PyPI package name'
+        description: "PyPI package name"
         required: true
       package_version:
-        description: 'Package version'
+        description: "Package version"
         required: true
 
 permissions:
@@ -23,40 +23,38 @@ jobs:
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
 
-    - name: Install pipx
-      run: python -m pip install pipx
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Download sdist
-      shell: bash
-      run: |
-        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
-        tarball=$(ls *.tar.gz)
-        tar --strip-components=1 -xvf  "$tarball"
-        rm "$tarball"
+      - name: Download sdist
+        shell: bash
+        run: |
+          uv pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+          tarball=$(ls *.tar.gz)
+          tar --strip-components=1 -xvf  "$tarball"
+          rm "$tarball"
 
-    - name: Build pure Python wheel
-      run: pipx run build --wheel .
+      - name: Build pure Python wheel
+        run: uvx run build --wheel .
 
-    - name: Check if wheel is pure Python
-      id: check_pure
-      run: |
-        wheel_name=$(ls dist/*.whl)
-        if [[ $wheel_name == *none-any.whl ]]; then
-          echo "is_pure=true" >> $GITHUB_OUTPUT
-        else
-          echo "is_pure=false" >> $GITHUB_OUTPUT
-        fi
+      - name: Check if wheel is pure Python
+        id: check_pure
+        run: |
+          wheel_name=$(ls dist/*.whl)
+          if [[ $wheel_name == *none-any.whl ]]; then
+            echo "is_pure=true" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Upload wheel to release
-      if: steps.check_pure.outputs.is_pure == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl
+      - name: Upload wheel to release
+        if: steps.check_pure.outputs.is_pure == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl
 
   draft_release:
     name: Ensure Release
@@ -64,14 +62,14 @@ jobs:
     needs: [build_pure_wheel]
     if: needs.build_pure_wheel.outputs.is_pure != 'true'
     steps:
-    - name: Ensure draft release
-      id: ensure_release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        if ! gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} &>/dev/null; then
-          gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft --title "${{ github.event.inputs.package_name }} ${{ github.event.inputs.package_version }}" --generate-notes
-        fi
+      - name: Ensure draft release
+        id: ensure_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} &>/dev/null; then
+            gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft --title "${{ github.event.inputs.package_name }} ${{ github.event.inputs.package_version }}" --generate-notes
+          fi
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -82,37 +80,40 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-    - name: Download sdist
-      shell: bash
-      run: |
-        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
-        tarball=$(ls *.tar.gz)
-        tar --strip-components=1 -xvf  "$tarball"
-        rm "$tarball"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
 
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v2.19.1
-      env:
-        CIBW_REPAIR_WHEEL_COMMAND: ""
-      with:
-        package-dir: .
-        output-dir: dist
+      - name: Download sdist
+        shell: bash
+        run: |
+          uv pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+          tarball=$(ls *.tar.gz)
+          tar --strip-components=1 -xvf  "$tarball"
+          rm "$tarball"
 
-    - name: Upload wheels to release
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        for wheel in dist/*.whl; do
-          gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} "$wheel" --clobber
-        done
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.19.1
+        env:
+          CIBW_REPAIR_WHEEL_COMMAND: ""
+        with:
+          package-dir: .
+          output-dir: dist
+
+      - name: Upload wheels to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for wheel in dist/*.whl; do
+            gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} "$wheel" --clobber
+          done
 
   publish_release:
     name: Publish Release
     needs: [build_wheels]
     runs-on: ubuntu-latest
     steps:
-    - name: Publish Release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: gh release edit ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft=false
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft=false
