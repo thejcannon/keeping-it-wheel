@@ -1,0 +1,13 @@
+[project]
+name = "keeping-it-wheel"
+version = "0.1.0"
+# The same as `ubuntu-24.04`
+requires-python = "==3.12.3"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "cogapp>=3.5.1",
+    "httpx>=0.28.1",
+]

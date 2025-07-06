@@ -1,3 +1,13 @@
+# [[[cog
+# import httpx
+#
+# UBUNTU_RUNNER = "ubuntu-24.04"
+# WINDOWS_RUNNER = "windows-2025"
+# MACOS_RUNNER = "macos-14"
+#
+# CI_BUILDWHEEL_INFO = httpx.get("https://api.github.com/repos/pypa/cibuildwheel/releases/latest").raise_for_status().json()
+# ]]]
+# [[[end]]]
 name: Build and Upload Wheel
 
 on:
@@ -19,28 +29,32 @@ env:
 jobs:
   build_pure_wheel:
     name: Build pure Python wheel
-    runs-on: ubuntu-latest
+    # [[[cog
+    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
+    # ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.x"
+      - name: Install build deps
+        run: |
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/requirements.txt \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+          python -m pip install --require-hashes requirements.txt
+          rm requirements.txt
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
-      - name: Download sdist
+      - name: Download the sdist
         shell: bash
         run: |
-          uv pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+          pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
           tarball=$(ls *.tar.gz)
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
 
       - name: Build pure Python wheel
-        run: uvx run build --wheel .
+        shell: bash
+        run: python -m build --wheel .
 
       - name: Check if wheel is pure Python
         id: check_pure
@@ -58,7 +72,11 @@ jobs:
 
   draft_release:
     name: Ensure Release
-    runs-on: ubuntu-latest
+    # [[[cog
+    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
+    # ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
     needs: [build_pure_wheel]
     if: needs.build_pure_wheel.outputs.is_pure != 'true'
     steps:
@@ -77,22 +95,34 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+        os:
+          # [[[cog
+          # cog.outl(f"- {UBUNTU_RUNNER}")
+          # cog.outl(f"- {WINDOWS_RUNNER}")
+          # cog.outl(f"- {MACOS_RUNNER}")
+          # ]]]
+          - ubuntu-24.04
+          - windows-2025
+          - macos-14
+          # [[[end]]]
     steps:
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-
       - name: Download sdist
         shell: bash
         run: |
-          uv pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+          pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
           tarball=$(ls *.tar.gz)
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19.1
+        # @TODO: Get SHA
+        # [[[cog
+        # cog.outl(f"# {CI_BUILDWHEEL_INFO['html_url']}")
+        # cog.outl(f"uses: pypa/cibuildwheel@")
+        # ]]]
+        # https://github.com/pypa/cibuildwheel/releases/tag/v3.0.0
+        uses: pypa/cibuildwheel@v3.0.0
+        # [[[end]]]
         env:
           CIBW_REPAIR_WHEEL_COMMAND: ""
         with:
@@ -111,7 +141,11 @@ jobs:
   publish_release:
     name: Publish Release
     needs: [build_wheels]
-    runs-on: ubuntu-latest
+    # [[[cog
+    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
+    # ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
     steps:
       - name: Publish Release
         env:
