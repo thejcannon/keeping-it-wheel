@@ -5,7 +5,10 @@
 # WINDOWS_RUNNER = "windows-2025"
 # MACOS_RUNNER = "macos-14"
 #
-# CI_BUILDWHEEL_INFO = httpx.get("https://api.github.com/repos/pypa/cibuildwheel/releases/latest").raise_for_status().json()
+# with httpx.Client(base_url="https://api.github.com/repos/pypa/cibuildwheel") as client:
+#   CI_BUILDWHEEL_TAG = client.get("/releases/latest").raise_for_status().json()["tag_name"]
+#   CI_BUILDWHEEL_TAG_SHA = client.get(f"/git/ref/tags/{CI_BUILDWHEEL_TAG}").raise_for_status().json()["object"]["sha"]
+#   CI_BUILDHWEEL_COMMIT_SHA = client.get(f"/git/tags/{CI_BUILDWHEEL_TAG_SHA}").raise_for_status().json()["object"]["sha"]
 # ]]]
 # [[[end]]]
 name: Build and Upload Wheel
@@ -29,21 +32,21 @@ env:
 jobs:
   build_pure_wheel:
     name: Build pure Python wheel
-    # [[[cog
-    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
-    # ]]]
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
+      # [[[cog cog.include("steps/install-build-deps.yml") ]]]
       - name: Install build deps
         run: |
           curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/requirements.txt \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
           python -m pip install --require-hashes requirements.txt
           rm requirements.txt
-
+      # [[[end]]]
+      # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
         shell: bash
         run: |
@@ -51,6 +54,7 @@ jobs:
           tarball=$(ls *.tar.gz)
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
+        # [[[end]]]
 
       - name: Build pure Python wheel
         shell: bash
@@ -72,9 +76,7 @@ jobs:
 
   draft_release:
     name: Ensure Release
-    # [[[cog
-    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
-    # ]]]
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
     needs: [build_pure_wheel]
@@ -106,22 +108,19 @@ jobs:
           - macos-14
           # [[[end]]]
     steps:
-      - name: Download sdist
+      # [[[cog cog.include("steps/download-sdist.yml") ]]]
+      - name: Download the sdist
         shell: bash
         run: |
           pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
           tarball=$(ls *.tar.gz)
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
+        # [[[end]]]
 
       - name: Build wheels
-        # @TODO: Get SHA
-        # [[[cog
-        # cog.outl(f"# {CI_BUILDWHEEL_INFO['html_url']}")
-        # cog.outl(f"uses: pypa/cibuildwheel@")
-        # ]]]
-        # https://github.com/pypa/cibuildwheel/releases/tag/v3.0.0
-        uses: pypa/cibuildwheel@v3.0.0
+        # [[[cog cog.outl(f"uses: pypa/cibuildwheel@{CI_BUILDHWEEL_COMMIT_SHA} # {CI_BUILDWHEEL_TAG}") ]]]
+        uses: pypa/cibuildwheel@95d2f3a92fbf80abe066b09418bbf128a8923df2 # v3.0.1
         # [[[end]]]
         env:
           CIBW_REPAIR_WHEEL_COMMAND: ""
@@ -141,9 +140,7 @@ jobs:
   publish_release:
     name: Publish Release
     needs: [build_wheels]
-    # [[[cog
-    # cog.outl(f"runs-on: {UBUNTU_RUNNER}")
-    # ]]]
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
     steps:

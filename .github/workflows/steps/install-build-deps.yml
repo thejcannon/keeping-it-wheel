@@ -1,0 +1,6 @@
+- name: Install build deps
+  run: |
+    curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/requirements.txt \
+      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+    python -m pip install --require-hashes requirements.txt
+    rm requirements.txt

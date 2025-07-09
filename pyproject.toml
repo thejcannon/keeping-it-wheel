@@ -8,6 +8,9 @@ dependencies = []
 [dependency-groups]
 dev = [
     "build>=1.2.2.post1",
-    "cogapp>=3.5.1",
-    "httpx>=0.28.1",
+ "cogapp>=3.5.1",
+ "httpx>=0.28.1",
 ]
+
+[tool.uv.sources]
+cogapp = { git = "https://github.com/thejcannon/cog" }

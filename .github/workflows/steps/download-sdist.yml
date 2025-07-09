@@ -1,0 +1,7 @@
+- name: Download the sdist
+  shell: bash
+  run: |
+    pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
+    tarball=$(ls *.tar.gz)
+    tar --strip-components=1 -xvf  "$tarball"
+    rm "$tarball"
