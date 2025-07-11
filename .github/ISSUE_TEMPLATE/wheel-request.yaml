@@ -1,6 +1,6 @@
 name: Wheel Request
 description: Request wheels be built.
-title: "[REquest]: "
+title: "[Wheel]: "
 labels: ["wheel-request"]
 body:
   - type: markdown
