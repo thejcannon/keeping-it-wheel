@@ -1,0 +1,16 @@
+name: Wheel Request
+description: Request wheels be built.
+title: "[REquest]: "
+labels: ["wheel-request"]
+body:
+  - type: markdown
+    attributes:
+      value: Good morning, Sir. Welcome to the National Cheese Emporium!
+  - type: input
+    id: pypi-url
+    attributes:
+      label: PyPI URL
+      description: What is the PyPI URL of the package+version?
+      placeholder: ex https://pypi.org/project/httpx/0.28.1/
+    validations:
+      required: true
