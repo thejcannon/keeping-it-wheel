@@ -64,8 +64,8 @@ jobs:
       - name: Trigger workflow
         run: |
           gh workflow run \
+            build-wheel.yml \
             --ref ${GITHUB_REF} \
-            --workflow build-wheel.yml \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION}
           gh issue comment \
