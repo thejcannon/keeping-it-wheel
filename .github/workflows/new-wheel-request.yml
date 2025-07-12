@@ -15,7 +15,7 @@ jobs:
       contents: write
       issues: write
     if: |
-      github.event.issue.labels.*.name == 'wheel-request'
+      contains(github.event.issue.labels.*.name, 'wheel-request')
       && contains(github.event.issue.body, 'https://pypi.org/project/')
     steps:
       - name: Get the URL/name/version
