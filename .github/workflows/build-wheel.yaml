@@ -174,7 +174,7 @@ jobs:
 
   comment-on-pr:
     name: Comment on PR
-    needs: [publish_release]
+    needs: [build_pure_wheel, publish_release]
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
@@ -183,7 +183,7 @@ jobs:
       contents: write
     steps:
       - name: Close issue
-        if: needs.publish_release.result == 'success'
+        if: contains(needs.*.result, 'success')
         run: |
           gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --comment "Wheels built successfully.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
@@ -192,10 +192,11 @@ jobs:
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
           GITHUB_RUN_ID: ${{ github.run_id }}
       - name: Comment on issue
-        if: needs.publish_release.result != 'success'
+        if: |
+          ! contains(needs.*.result , 'success')
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
-            --comment "Something went wrong.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
+            --body "Something went wrong.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
