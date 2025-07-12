@@ -183,7 +183,7 @@ jobs:
       contents: write
     steps:
       - name: Close issue
-        if: jobs.publish_release.result == 'success'
+        if: needs.publish_release.result == 'success'
         run: |
           gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --comment "Wheels built successfully.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
