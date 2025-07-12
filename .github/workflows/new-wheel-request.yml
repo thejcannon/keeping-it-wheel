@@ -2,7 +2,7 @@ name: Handle Wheel Request
 
 on:
   issues:
-    types: [opened]
+    types: [opened, reopened]
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -21,17 +21,15 @@ jobs:
       - name: Get the URL/name/version
         id: info
         run: |
-          # Grep the issue body for the PyPI URL
-          if [[ "$ISSUE_BODY" =~ ^https://pypi\.org/project/([^/]+)/([^/]+)/?$ ]]; then
-            echo "is_pypi=true" >> $GITHUB_OUTPUT
-            echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+          if [[ "$ISSUE_BODY" =~ https://pypi\.org/project/([^/]+)/([^/]+)/? ]]; then
+              echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+              echo "version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
           else
-            gh issue close \
-              --comment "Couldn't find a PyPI URL in the issue body." \
-              --reason "not planned" \
-              ${{ github.event.issue.number }}
-            exit 1
+              gh issue close \
+                  --comment "Couldn't find a PyPI URL in the issue body." \
+                  --reason "not planned" \
+                  9
+              exit 1
           fi
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
