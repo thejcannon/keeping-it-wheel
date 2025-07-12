@@ -22,6 +22,9 @@ on:
       package_version:
         description: "Package version"
         required: true
+      issue_number:
+        description: "Issue number to respond to when complete"
+        required: false
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -168,3 +171,23 @@ jobs:
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
+
+  comment-on-pr:
+    name: Comment on PR
+    needs: [publish_release]
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
+    if: always() && github.event.inputs.issue_number
+    permissions:
+      contents: write
+    steps:
+      - name: Report on PR
+        if: jobs.publish_release.result == 'success'
+        run: |
+          gh pr close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --comment "Wheels built successfully.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
