@@ -192,7 +192,7 @@ jobs:
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
           GITHUB_RUN_ID: ${{ github.run_id }}
       - name: Comment on issue
-        if: jobs.publish_release.result != 'success'
+        if: needs.publish_release.result != 'success'
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --comment "Something went wrong.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
