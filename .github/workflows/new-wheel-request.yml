@@ -48,7 +48,7 @@ jobs:
         run: |
           DUP_ISSUE_ID=$(gh issue list \
             --label "wheel-request" \
-            --search '"Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}"'
+            --search '"Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}"' \
             --json title,id \
             --jq '.[] | select(.title == "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}") | .id')
           if [[ -n $DUP_ISSUE_ID ]]; then
