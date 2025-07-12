@@ -68,7 +68,7 @@ jobs:
             --ref ${GITHUB_REF} \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
-            -F issue_number=${ISSUE_ID} \
+            -F issue_number=${ISSUE_ID}
           gh issue comment \
             --body ":hourglass_flowing_sand: Wheel request triggered" \
             ${{ github.event.issue.number }}
