@@ -34,7 +34,7 @@ jobs:
             exit 1
           fi
         env:
-          ISSUE_BODY: ${{ issue.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Edit the title
