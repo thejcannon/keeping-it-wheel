@@ -64,14 +64,16 @@ jobs:
       - name: Trigger workflow
         run: |
           gh workflow run \
-            build-wheel.yml \
+            .github/workflows/build-wheel.yml \
             --ref ${GITHUB_REF} \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
-            -F package_version=${STEPS_INFO_OUTPUTS_VERSION}
+            -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
+            -F issue_number=${ISSUE_ID} \
           gh issue comment \
             --body ":hourglass_flowing_sand: Wheel request triggered" \
             ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
