@@ -38,19 +38,19 @@ jobs:
       - name: Edit the title
         run: |
           gh issue edit \
-            --title "Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}" \
+            --title "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}" \
             ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 2. Check to see if this is a duplicate (if so, close it as such)
+          STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
+          STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
       - name: Check for duplicates
         run: |
           DUP_ISSUE_ID=$(gh issue list \
             --label "wheel-request" \
-            --search '"Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}"'
+            --search '"Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}"'
             --json title,id \
-            --jq '.[] | select(.title == "Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}") | .id'
+            --jq '.[] | select(.title == "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}") | .id')
           if [[ -n $DUP_ISSUE_ID ]]; then
             MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
             gh api graphql -f query="$MUTATION"
@@ -59,17 +59,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_ID: ${{ github.event.issue.id }}
-
-      # 3. Trigger the workflow (and comment on issue)
+          STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
+          STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
       - name: Trigger workflow
         run: |
           gh workflow run \
-            --ref ${{ github.ref }} \
+            --ref ${GITHUB_REF} \
             --workflow build-wheel.yml \
-            -F package_name=${{ steps.info.outputs.name }} \
-            -F package_version=${{ steps.info.outputs.version }}
+            -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
+            -F package_version=${STEPS_INFO_OUTPUTS_VERSION}
           gh issue comment \
             --body ":hourglass_flowing_sand: Wheel request triggered" \
             ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
+          STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
