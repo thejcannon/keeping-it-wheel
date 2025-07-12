@@ -1,0 +1,77 @@
+name: Handle Wheel Request
+
+on:
+  issues:
+    types: [opened]
+
+env:
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  handle_wheel_request:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+    if: |
+      github.event.issue.labels.*.name == 'wheel-request'
+      && contains(github.event.issue.body, 'https://pypi.org/project/')
+    steps:
+      - name: Get the URL/name/version
+        id: info
+        run: |
+          # Grep the issue body for the PyPI URL
+          if [[ "$ISSUE_BODY" =~ ^https://pypi\.org/project/([^/]+)/([^/]+)/?$ ]]; then
+            echo "is_pypi=true" >> $GITHUB_OUTPUT
+            echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+          else
+            gh issue close \
+              --comment "Couldn't find a PyPI URL in the issue body." \
+              --reason "not planned" \
+              ${{ github.event.issue.number }}
+            exit 1
+          fi
+        env:
+          ISSUE_BODY: ${{ issue.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Edit the title
+        run: |
+          gh issue edit \
+            --title "Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}" \
+            ${{ github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Check to see if this is a duplicate (if so, close it as such)
+      - name: Check for duplicates
+        run: |
+          DUP_ISSUE_ID=$(gh issue list \
+            --label "wheel-request" \
+            --search '"Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}"'
+            --json title,id \
+            --jq '.[] | select(.title == "Wheel Request: ${{ steps.info.outputs.name }} - ${{steps.info.outputs.version}}") | .id'
+          if [[ -n $DUP_ISSUE_ID ]]; then
+            MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
+            gh api graphql -f query="$MUTATION"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_ID: ${{ github.event.issue.id }}
+
+      # 3. Trigger the workflow (and comment on issue)
+      - name: Trigger workflow
+        run: |
+          gh workflow run \
+            --ref ${{ github.ref }} \
+            --workflow build-wheel.yml \
+            -F package_name=${{ steps.info.outputs.name }} \
+            -F package_version=${{ steps.info.outputs.version }}
+          gh issue comment \
+            --body ":hourglass_flowing_sand: Wheel request triggered" \
+            ${{ github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

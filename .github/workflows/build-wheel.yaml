@@ -1,17 +1,30 @@
+# [[[cog
+# import httpx
+#
+# UBUNTU_RUNNER = "ubuntu-24.04"
+# WINDOWS_RUNNER = "windows-2025"
+# MACOS_RUNNER = "macos-14"
+#
+# with httpx.Client(base_url="https://api.github.com/repos/pypa/cibuildwheel") as client:
+#   CI_BUILDWHEEL_TAG = client.get("/releases/latest").raise_for_status().json()["tag_name"]
+#   CI_BUILDWHEEL_TAG_SHA = client.get(f"/git/ref/tags/{CI_BUILDWHEEL_TAG}").raise_for_status().json()["object"]["sha"]
+#   CI_BUILDHWEEL_COMMIT_SHA = client.get(f"/git/tags/{CI_BUILDWHEEL_TAG_SHA}").raise_for_status().json()["object"]["sha"]
+# ]]]
+# [[[end]]]
 name: Build and Upload Wheel
 
 on:
   workflow_dispatch:
     inputs:
       package_name:
-        description: 'PyPI package name'
+        description: "PyPI package name"
         required: true
       package_version:
-        description: 'Package version'
+        description: "Package version"
         required: true
-
-permissions:
-  contents: write
+      issue_number:
+        description: "Issue number to respond to when complete"
+        required: false
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -19,100 +32,171 @@ env:
 jobs:
   build_pure_wheel:
     name: Build pure Python wheel
-    runs-on: ubuntu-latest
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
+    permissions:
+      contents: write
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      # [[[cog cog.include("steps/install-build-deps.yml") ]]]
+      - name: Install build deps
+        run: |
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/build-requirements.txt \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            > build-requirements.txt
+          python -m pip install --require-hashes -r build-requirements.txt
+          rm build-requirements.txt
+      # [[[end]]]
+      # [[[cog cog.include("steps/download-sdist.yml") ]]]
+      - name: Download the sdist
+        shell: bash
+        run: |
+          pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
+          tarball=$(ls *.tar.gz)
+          tar --strip-components=1 -xvf  "$tarball"
+          rm "$tarball"
+        env:
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+      # [[[end]]]
 
-    - name: Install pipx
-      run: python -m pip install pipx
+      - name: Build pure Python wheel
+        shell: bash
+        run: python -m build --wheel .
 
-    - name: Download sdist
-      shell: bash
-      run: |
-        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
-        tarball=$(ls *.tar.gz)
-        tar --strip-components=1 -xvf  "$tarball"
-        rm "$tarball"
+      - name: Check if wheel is pure Python
+        id: check_pure
+        run: |
+          wheel_name=$(ls dist/*.whl)
+          if [[ $wheel_name == *none-any.whl ]]; then
+            echo "is_pure=true" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Build pure Python wheel
-      run: pipx run build --wheel .
-
-    - name: Check if wheel is pure Python
-      id: check_pure
-      run: |
-        wheel_name=$(ls dist/*.whl)
-        if [[ $wheel_name == *none-any.whl ]]; then
-          echo "is_pure=true" >> $GITHUB_OUTPUT
-        else
-          echo "is_pure=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Upload wheel to release
-      if: steps.check_pure.outputs.is_pure == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} dist/*.whl
+      - name: Upload wheel to release
+        if: steps.check_pure.outputs.is_pure == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+        run: gh release create ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} dist/*.whl
 
   draft_release:
     name: Ensure Release
-    runs-on: ubuntu-latest
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
     needs: [build_pure_wheel]
     if: needs.build_pure_wheel.outputs.is_pure != 'true'
+    permissions:
+      contents: write
     steps:
-    - name: Ensure draft release
-      id: ensure_release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        if ! gh release view ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} &>/dev/null; then
-          gh release create ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft --title "${{ github.event.inputs.package_name }} ${{ github.event.inputs.package_version }}" --generate-notes
-        fi
+      - name: Ensure draft release
+        id: ensure_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+        run: |
+          if ! gh release view ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} &>/dev/null; then
+            gh release create ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft --title "${GITHUB_EVENT_INPUTS_PACKAGE_NAME} ${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}" --generate-notes
+          fi
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     needs: [draft_release]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+        os:
+          # [[[cog
+          # cog.outl(f"- {UBUNTU_RUNNER}")
+          # cog.outl(f"- {WINDOWS_RUNNER}")
+          # cog.outl(f"- {MACOS_RUNNER}")
+          # ]]]
+          - ubuntu-24.04
+          - windows-2025
+          - macos-14
+          # [[[end]]]
     steps:
-    - name: Download sdist
-      shell: bash
-      run: |
-        pip download --no-deps --no-binary=:all: ${{ github.event.inputs.package_name }}==${{ github.event.inputs.package_version }}
-        tarball=$(ls *.tar.gz)
-        tar --strip-components=1 -xvf  "$tarball"
-        rm "$tarball"
+      # [[[cog cog.include("steps/download-sdist.yml") ]]]
+      - name: Download the sdist
+        shell: bash
+        run: |
+          pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
+          tarball=$(ls *.tar.gz)
+          tar --strip-components=1 -xvf  "$tarball"
+          rm "$tarball"
+        env:
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+      # [[[end]]]
 
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v2.19.1
-      env:
-        CIBW_REPAIR_WHEEL_COMMAND: ""
-      with:
-        package-dir: .
-        output-dir: dist
+      - name: Build wheels
+        # [[[cog cog.outl(f"uses: pypa/cibuildwheel@{CI_BUILDHWEEL_COMMIT_SHA} # {CI_BUILDWHEEL_TAG}") ]]]
+        uses: pypa/cibuildwheel@95d2f3a92fbf80abe066b09418bbf128a8923df2 # v3.0.1
+        # [[[end]]]
+        env:
+          CIBW_REPAIR_WHEEL_COMMAND: ""
+        with:
+          package-dir: .
+          output-dir: dist
 
-    - name: Upload wheels to release
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        for wheel in dist/*.whl; do
-          gh release upload ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} "$wheel" --clobber
-        done
+      - name: Upload wheels to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+        run: |
+          for wheel in dist/*.whl; do
+            gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} "$wheel" --clobber
+          done
 
   publish_release:
     name: Publish Release
     needs: [build_wheels]
-    runs-on: ubuntu-latest
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
+    permissions:
+      contents: write
     steps:
-    - name: Publish Release
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: gh release edit ${{ github.event.inputs.package_name }}-${{ github.event.inputs.package_version }} --draft=false
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+        run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
+
+  comment-on-pr:
+    name: Comment on PR
+    needs: [publish_release]
+    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
+    runs-on: ubuntu-24.04
+    # [[[end]]]
+    if: always() && github.event.inputs.issue_number
+    permissions:
+      contents: write
+    steps:
+      - name: Close issue
+        if: jobs.publish_release.result == 'success'
+        run: |
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --comment "Wheels built successfully.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+      - name: Comment on issue
+        if: jobs.publish_release.result != 'success'
+        run: |
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --comment "Something went wrong.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
