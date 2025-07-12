@@ -182,11 +182,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Report on PR
+      - name: Close issue
         if: jobs.publish_release.result == 'success'
         run: |
-          gh pr close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --comment "Wheels built successfully.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+      - name: Comment on issue
+        if: jobs.publish_release.result != 'success'
+        run: |
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --comment "Something went wrong.\\n\\nSee the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID})"
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
