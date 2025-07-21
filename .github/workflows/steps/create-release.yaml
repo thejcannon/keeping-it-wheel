@@ -1,0 +1,10 @@
+run: |
+  curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_WORKFLOW_SHA}/.github/workflows/build-wheel.yaml \
+      -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+      > github-actions-workflow.yaml
+  gh release create \
+      --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+      --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
+      ${GH_RELEASE_CREATE_FLAGS} \
+      dist/*.whl \
+      github-actions-workflow.yaml

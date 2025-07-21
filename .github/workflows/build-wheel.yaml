@@ -15,7 +15,7 @@
 # WINDOWS_RUNNER = "windows-2025"
 # MACOS_RUNNER = "macos-14"
 #
-# @TODO: Figure out how to selectively update this...
+# # @TODO: Figure out how to selectively update this...
 # with httpx.Client(base_url="https://api.github.com/repos/pypa/cibuildwheel") as client:
 #   CI_BUILDWHEEL_TAG = client.get("/releases/latest").raise_for_status().json()["tag_name"]
 #   CI_BUILDWHEEL_TAG_SHA = client.get(f"/git/ref/tags/{CI_BUILDWHEEL_TAG}").raise_for_status().json()["object"]["sha"]
@@ -91,13 +91,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          GH_RELEASE_CREATE_FLAGS: ""
+        # [[[cog cog.include("steps/create-release.yaml") ]]]
         run: |
           curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_WORKFLOW_SHA}/.github/workflows/build-wheel.yaml \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            > github-actions-workflow.yaml
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              > github-actions-workflow.yaml
           gh release create \
-            ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-            dist/*.whl \
+              --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+              --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
+              ${GH_RELEASE_CREATE_FLAGS} \
+              dist/*.whl \
+              github-actions-workflow.yaml
+        # [[[end]]]
 
   draft_release:
     name: Ensure Release
@@ -115,10 +121,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          GH_RELEASE_CREATTE_FLAGS: "--draft"
+        # [[[cog cog.include("steps/create-release.yaml") ]]]
         run: |
-          if ! gh release view ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} &>/dev/null; then
-            gh release create ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft --title "${GITHUB_EVENT_INPUTS_PACKAGE_NAME} ${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}" --generate-notes
-          fi
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_WORKFLOW_SHA}/.github/workflows/build-wheel.yaml \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              > github-actions-workflow.yaml
+          gh release create \
+              --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+              --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
+              ${GH_RELEASE_CREATE_FLAGS} \
+              dist/*.whl \
+              github-actions-workflow.yaml
+        # [[[end]]]
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
