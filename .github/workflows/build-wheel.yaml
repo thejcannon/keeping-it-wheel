@@ -62,10 +62,12 @@ jobs:
       # [[[end]]]
       # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
+        id: download-sdist
         shell: bash
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
+          echo "tarball-hash=$(sha256sum "$tarball")" >> "$GITHUB_OUTPUT"
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
         env:
@@ -95,6 +97,7 @@ jobs:
           gh release create \
               ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+              --notes ${{ steps.download-sdist.outputs.tarball-hash }} \
               --draft \
               dist/*.whl
       # [[[end]]]
@@ -106,7 +109,7 @@ jobs:
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
         # [[[end]]]
-        if: steps.check.outputs.is_pure == 'true'
+        if: steps.check_pure.outputs.is_pure == 'true'
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -130,10 +133,12 @@ jobs:
     steps:
       # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
+        id: download-sdist
         shell: bash
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
+          echo "tarball-hash=$(sha256sum "$tarball")" >> "$GITHUB_OUTPUT"
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
         env:
