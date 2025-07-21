@@ -97,7 +97,7 @@ jobs:
           gh release create \
               ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-              --notes ${{ steps.download-sdist.outputs.tarball-hash }} \
+              --notes "${{ steps.download-sdist.outputs.tarball-hash }}" \
               --draft \
               dist/*.whl
       # [[[end]]]
