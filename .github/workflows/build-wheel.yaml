@@ -1,3 +1,13 @@
+# The main workflow to build a wheel and upload it as a release asset.
+#
+# Some philosophies:
+#   - As much as possible, use what's already installed
+#   - If something needs installing, use a pinned version
+#   - (and ideally, that should include transitive dependencies)
+#
+# The point of this is to ensure that wheel consumers can trust,
+#   as much as possible, the environment which built the wheel.
+
 # [[[cog
 # import httpx
 #
@@ -5,6 +15,7 @@
 # WINDOWS_RUNNER = "windows-2025"
 # MACOS_RUNNER = "macos-14"
 #
+# @TODO: Figure out how to selectively update this...
 # with httpx.Client(base_url="https://api.github.com/repos/pypa/cibuildwheel") as client:
 #   CI_BUILDWHEEL_TAG = client.get("/releases/latest").raise_for_status().json()["tag_name"]
 #   CI_BUILDWHEEL_TAG_SHA = client.get(f"/git/ref/tags/{CI_BUILDWHEEL_TAG}").raise_for_status().json()["object"]["sha"]
@@ -80,7 +91,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
-        run: gh release create ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} dist/*.whl
+        run: |
+          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${{github.workflow_sha}}/.github/workflows/build-wheel.yaml \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            > github-actions-workflow.yaml
+          gh release create \
+            ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+            dist/*.whl \
 
   draft_release:
     name: Ensure Release
