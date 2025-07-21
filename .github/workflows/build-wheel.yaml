@@ -98,7 +98,7 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               > github-actions-workflow.yaml
           gh release create \
-              ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
+              ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
               ${GH_RELEASE_CREATE_FLAGS} \
@@ -129,7 +129,7 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               > github-actions-workflow.yaml
           gh release create \
-              ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
+              ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
               ${GH_RELEASE_CREATE_FLAGS} \
