@@ -30,8 +30,6 @@ env:
   GH_REPO: ${{ github.repository }}
 
 jobs:
-  # @TODO: We should check if wheel already exists on PyPI and if so, gracefully bail
-
   build_pure_wheel:
     name: Build pure Python wheel
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
