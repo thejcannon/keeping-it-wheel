@@ -85,62 +85,34 @@ jobs:
             echo "is_pure=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload wheel to release
-        if: steps.check_pure.outputs.is_pure == 'true'
+      # [[[cog cog.include("steps/make-release.yaml") ]]]
+      - name: Make release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
-          GH_RELEASE_CREATE_FLAGS: ""
-        # [[[cog cog.include("steps/create-release.yaml") ]]]
         run: |
-          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_WORKFLOW_SHA}/.github/workflows/build-wheel.yaml \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              > github-actions-workflow.yaml
           gh release create \
               ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-              --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
-              ${GH_RELEASE_CREATE_FLAGS} \
-              dist/*.whl \
-              github-actions-workflow.yaml
-        # [[[end]]]
-
-  draft_release:
-    name: Ensure Release
-    # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
-    runs-on: ubuntu-24.04
-    # [[[end]]]
-    needs: [build_pure_wheel]
-    if: needs.build_pure_wheel.outputs.is_pure != 'true'
-    permissions:
-      contents: write
-    steps:
-      - name: Ensure draft release
-        id: ensure_release
+              --draft \
+              dist/*.whl
+      # [[[end]]]
+      # [[[cog cog.include("steps/publish-release.yaml") ]]]
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
-          GH_RELEASE_CREATTE_FLAGS: "--draft"
-        # [[[cog cog.include("steps/create-release.yaml") ]]]
-        run: |
-          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_WORKFLOW_SHA}/.github/workflows/build-wheel.yaml \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              > github-actions-workflow.yaml
-          gh release create \
-              ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-              --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-              --target 1971649b77e948e60321c4b39fda8d81b1e14bcb \
-              ${GH_RELEASE_CREATE_FLAGS} \
-              dist/*.whl \
-              github-actions-workflow.yaml
+        run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
         # [[[end]]]
+        if: steps.check.outputs.is_pure == 'true'
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
-    needs: [draft_release]
     runs-on: ${{ matrix.os }}
+    needs: [build_pure_wheel]
+    if: needs.build_pure_wheel.outputs.is_pure != 'true'
     permissions:
       contents: write
     strategy:
@@ -199,12 +171,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Publish Release
+      # [[[cog cog.include("steps/publish-release.yaml") ]]]
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
+        # [[[end]]]
 
   comment-on-pr:
     name: Comment on PR
