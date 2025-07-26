@@ -15,11 +15,11 @@
 # WINDOWS_RUNNER = "windows-2025"
 # MACOS_RUNNER = "macos-14"
 #
-# # @TODO: Figure out how to selectively update this...
-# with httpx.Client(base_url="https://api.github.com/repos/pypa/cibuildwheel") as client:
-#   CI_BUILDWHEEL_TAG = client.get("/releases/latest").raise_for_status().json()["tag_name"]
-#   CI_BUILDWHEEL_TAG_SHA = client.get(f"/git/ref/tags/{CI_BUILDWHEEL_TAG}").raise_for_status().json()["object"]["sha"]
-#   CI_BUILDHWEEL_COMMIT_SHA = client.get(f"/git/tags/{CI_BUILDWHEEL_TAG_SHA}").raise_for_status().json()["object"]["sha"]
+# CI_BUILDWHEEL_TAG = "v3.0.1"
+# CI_BUILDHWEEL_COMMIT_SHA = "95d2f3a92fbf80abe066b09418bbf128a8923df2"
+# ATTEST_BUILD_PROVENANCE_TAG = "v2.4.0"
+# ATTEST_BUILD_PROVENANCE_COMMIT_SHA = "e8998f949152b193b063cb0ec769d69d929409be"
+#
 # ]]]
 # [[[end]]]
 name: Build and Upload Wheel
@@ -87,6 +87,15 @@ jobs:
             echo "is_pure=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Generate artifact attestation
+        id: attestation
+        if: steps.check_pure.outputs.is_pure == 'true'
+        # [[[cog cog.outl(f"uses: actions/attest-build-provenance@{ATTEST_BUILD_PROVENANCE_COMMIT_SHA} # {ATTEST_BUILD_PROVENANCE_TAG}") ]]]
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        # [[[end]]]
+        with:
+          subject-path: "dist/*.whl"
+
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
         env:
@@ -99,7 +108,8 @@ jobs:
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --notes "${{ steps.download-sdist.outputs.tarball-hash }}" \
               --draft \
-              dist/*.whl
+              dist/*.whl \
+              ${{ steps.attestation.outputs.bundle-path }} \
       # [[[end]]]
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
@@ -156,6 +166,14 @@ jobs:
           package-dir: .
           output-dir: dist
 
+      - name: Generate artifact attestation
+        id: attestation
+        # [[[cog cog.outl(f"uses: actions/attest-build-provenance@{ATTEST_BUILD_PROVENANCE_COMMIT_SHA} # {ATTEST_BUILD_PROVENANCE_TAG}") ]]]
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        # [[[end]]]
+        with:
+          subject-path: "dist/*.whl"
+
       - name: Upload wheels to release
         shell: bash
         env:
@@ -163,9 +181,10 @@ jobs:
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
-          for wheel in dist/*.whl; do
-            gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} "$wheel" --clobber
-          done
+          gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
+            dist/*.whl \
+            ${{ steps.attestation.outputs.bundle-path }} \
+            --clobber
 
   publish_release:
     name: Publish Release
