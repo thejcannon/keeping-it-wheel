@@ -3,10 +3,11 @@
     GH_TOKEN: ${{ github.token }}
     GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
     GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+    STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
   run: |
     gh release create \
         ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
         --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-        --notes "${{ steps.download-sdist.outputs.tarball-hash }}" \
+        --notes "${STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH}" \
         --draft \
         dist/*.whl

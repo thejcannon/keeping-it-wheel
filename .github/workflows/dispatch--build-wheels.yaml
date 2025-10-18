@@ -17,12 +17,10 @@
 #
 # CI_BUILDWHEEL_TAG = "v3.0.1"
 # CI_BUILDHWEEL_COMMIT_SHA = "95d2f3a92fbf80abe066b09418bbf128a8923df2"
-# ATTEST_BUILD_PROVENANCE_TAG = "v2.4.0"
-# ATTEST_BUILD_PROVENANCE_COMMIT_SHA = "e8998f949152b193b063cb0ec769d69d929409be"
 #
 # ]]]
 # [[[end]]]
-name: Build and Upload Wheel
+name: "Dispatch: Build and Upload Wheel"
 
 on:
   workflow_dispatch:
@@ -53,48 +51,33 @@ jobs:
     steps:
       # [[[cog cog.include("steps/install-build-deps.yml") ]]]
       - name: Install build deps
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/build-requirements.txt \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            > build-requirements.txt
-          python -m pip install --require-hashes -r build-requirements.txt
-          rm build-requirements.txt
+          python -m pip install --require-hashes $(
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/build-requirements.txt \
+              -H "Authorization: token $GH_TOKEN"
+          )
       # [[[end]]]
       # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
         id: download-sdist
-        shell: bash
+        env:
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
           echo "tarball-hash=$(sha256sum "$tarball")" >> "$GITHUB_OUTPUT"
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
-        env:
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
       # [[[end]]]
-
       - name: Build pure Python wheel
-        shell: bash
         run: python -m build --wheel .
 
       - name: Check if wheel is pure Python
         id: check_pure
-        run: |
-          wheel_name=$(ls dist/*.whl)
-          if [[ $wheel_name == *none-any.whl ]]; then
-            echo "is_pure=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate artifact attestation
-        id: attestation
-        if: steps.check_pure.outputs.is_pure == 'true'
-        # [[[cog cog.outl(f"uses: actions/attest-build-provenance@{ATTEST_BUILD_PROVENANCE_COMMIT_SHA} # {ATTEST_BUILD_PROVENANCE_TAG}") ]]]
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
-        # [[[end]]]
-        with:
-          subject-path: "dist/*.whl"
+        run: echo "is_pure=$(ls dist/*.whl | grep -q none-any.whl && echo true || echo false)" >> $GITHUB_OUTPUT
 
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
@@ -102,14 +85,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
         run: |
           gh release create \
               ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
               --title ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
-              --notes "${{ steps.download-sdist.outputs.tarball-hash }}" \
+              --notes "${STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH}" \
               --draft \
-              dist/*.whl \
-              ${{ steps.attestation.outputs.bundle-path }} \
+              dist/*.whl
       # [[[end]]]
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
@@ -144,18 +127,16 @@ jobs:
       # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
         id: download-sdist
-        shell: bash
+        env:
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
           echo "tarball-hash=$(sha256sum "$tarball")" >> "$GITHUB_OUTPUT"
           tar --strip-components=1 -xvf  "$tarball"
           rm "$tarball"
-        env:
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
       # [[[end]]]
-
       - name: Build wheels
         # [[[cog cog.outl(f"uses: pypa/cibuildwheel@{CI_BUILDHWEEL_COMMIT_SHA} # {CI_BUILDWHEEL_TAG}") ]]]
         uses: pypa/cibuildwheel@95d2f3a92fbf80abe066b09418bbf128a8923df2 # v3.0.1
@@ -166,24 +147,16 @@ jobs:
           package-dir: .
           output-dir: dist
 
-      - name: Generate artifact attestation
-        id: attestation
-        # [[[cog cog.outl(f"uses: actions/attest-build-provenance@{ATTEST_BUILD_PROVENANCE_COMMIT_SHA} # {ATTEST_BUILD_PROVENANCE_TAG}") ]]]
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
-        # [[[end]]]
-        with:
-          subject-path: "dist/*.whl"
-
       - name: Upload wheels to release
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
         run: |
           gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
             dist/*.whl \
-            ${{ steps.attestation.outputs.bundle-path }} \
+            ${STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH} \
             --clobber
 
   publish_release:
@@ -204,13 +177,13 @@ jobs:
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
         # [[[end]]]
 
-  comment-on-pr:
-    name: Comment on PR
+  comment-on-issue:
+    name: Comment on Issue
     needs: [build_pure_wheel, publish_release]
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
-    if: always() && github.event.inputs.issue_number
+    if: (success() || failure()) && github.event.inputs.issue_number
     permissions:
       issues: write
     steps:
