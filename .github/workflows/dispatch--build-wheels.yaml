@@ -9,15 +9,9 @@
 #   as much as possible, the environment which built the wheel.
 
 # [[[cog
-# import httpx
-#
 # UBUNTU_RUNNER = "ubuntu-24.04"
 # WINDOWS_RUNNER = "windows-2025"
 # MACOS_RUNNER = "macos-14"
-#
-# CI_BUILDWHEEL_TAG = "v3.0.1"
-# CI_BUILDHWEEL_COMMIT_SHA = "95d2f3a92fbf80abe066b09418bbf128a8923df2"
-#
 # ]]]
 # [[[end]]]
 name: "Dispatch: Build and Upload Wheel"
@@ -138,9 +132,7 @@ jobs:
           rm "$tarball"
       # [[[end]]]
       - name: Build wheels
-        # [[[cog cog.outl(f"uses: pypa/cibuildwheel@{CI_BUILDHWEEL_COMMIT_SHA} # {CI_BUILDWHEEL_TAG}") ]]]
-        uses: pypa/cibuildwheel@95d2f3a92fbf80abe066b09418bbf128a8923df2 # v3.0.1
-        # [[[end]]]
+        uses: pypa/cibuildwheel@9c00cb4f6b517705a3794b22395aedc36257242c # v3.2.1
         env:
           CIBW_REPAIR_WHEEL_COMMAND: ""
         with:

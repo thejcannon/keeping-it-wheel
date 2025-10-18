@@ -11,3 +11,4 @@ lint:
 reformat:
     uv run zizmor --fix=all .github/workflows/*.yaml
     uv run cog -r .github/workflows/*.yaml
+    uv run gha-update

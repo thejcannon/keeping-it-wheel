@@ -6,7 +6,11 @@ requires-python = "==3.12.3"
 dependencies = []
 
 [dependency-groups]
-dev = ["cogapp", "httpx", "zizmor"]
+dev = [
+    "cogapp",
+    "gha-update",
+    "zizmor",
+]
 
 [tool.uv.sources]
 cogapp = { git = "https://github.com/thejcannon/cog" }
