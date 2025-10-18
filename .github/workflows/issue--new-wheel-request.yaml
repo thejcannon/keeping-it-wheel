@@ -70,7 +70,7 @@ jobs:
       - name: Trigger workflow
         run: |
           gh workflow run \
-            build-wheel.yaml \
+            dispatch--build-wheels.yaml \
             --ref ${GITHUB_REF} \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
