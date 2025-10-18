@@ -21,18 +21,18 @@ jobs:
       - name: Get the URL/name/version
         id: info
         run: |
-          if [[ "$ISSUE_BODY" =~ https://pypi\.org/project/([^/]+)/([^/]+)/? ]]; then
+          if [[ "$GH_ISSUE_BODY" =~ https://pypi\.org/project/([^/]+)/([^/]+)/? ]]; then
               echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
               echo "version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
           else
               gh issue close \
                   --comment "Couldn't find a PyPI URL in the issue body." \
                   --reason "not planned" \
-                  9
+                  ${{ github.event.issue.number }}
               exit 1
           fi
         env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
+          GH_ISSUE_BODY: ${{ github.event.issue.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Edit the title
@@ -44,6 +44,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
+      
       - name: Check for duplicates
         run: |
           DUP_ISSUE_ID=$(gh issue list \
@@ -52,15 +53,16 @@ jobs:
             --json title,id \
             --jq '.[] | select(.title == "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}") | .id')
           if [[ -n $DUP_ISSUE_ID ]]; then
-            MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
+            MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$GH_ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
             gh api graphql -f query="$MUTATION"
             exit 1
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_ID: ${{ github.event.issue.id }}
+          GH_ISSUE_ID: ${{ github.event.issue.id }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
+      
       - name: Trigger workflow
         run: |
           gh workflow run \
@@ -68,12 +70,12 @@ jobs:
             --ref ${GITHUB_REF} \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
-            -F issue_number=${ISSUE_ID}
+            -F issue_number=${GH_ISSUE_NUMBER}
           gh issue comment \
             --body ":hourglass_flowing_sand: Wheel request triggered" \
             ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_ISSUE_NUMBER: ${{ github.event.issue.number }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
