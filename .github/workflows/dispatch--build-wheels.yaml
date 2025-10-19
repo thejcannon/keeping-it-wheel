@@ -185,11 +185,10 @@ jobs:
           gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --comment 'Wheels built successfully.
 
-          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID} )'
+          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{github.run_id}} )'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
       - name: Comment on issue
         if: |
           ! contains(needs.*.result , 'success')
@@ -197,8 +196,7 @@ jobs:
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --body 'Something went wrong.
 
-          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${GITHUB_RUN_ID} )'
+          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{github.run_id}})'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
