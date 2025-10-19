@@ -39,7 +39,6 @@ jobs:
               gh issue close ${{ github.event.issue.number }} \
                   --comment "Couldn't find a PyPI URL in the issue body." \
                   --reason "not planned"
-              gh issue lock ${{ github.event.issue.number }}
           fi
         env:
           GH_ISSUE_BODY: ${{ github.event.issue.body }}
@@ -69,7 +68,6 @@ jobs:
           if [[ -n $DUP_ISSUE_ID ]]; then
             MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$GITHUB_EVENT_ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
             gh api graphql -f query="$MUTATION"
-            gh issue lock ${{ github.event.issue.number }}
             echo "is_duplicate=true" >> $GITHUB_OUTPUT
           fi
         env:
@@ -89,7 +87,6 @@ jobs:
             -F issue_number=${GITHUB_EVENT_ISSUE_NUMBER}
           gh issue comment ${{ github.event.issue.number }} \
             --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon."
-          gh issue lock ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
