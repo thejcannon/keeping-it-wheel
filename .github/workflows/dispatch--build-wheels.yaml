@@ -33,6 +33,7 @@ env:
   GH_REPO: ${{ github.repository }}
 
 jobs:
+  # @TODO: Add a job to add workflow URL to Mr. Wensleydale
   build_pure_wheel:
     name: Build pure Python wheel
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
@@ -179,24 +180,29 @@ jobs:
     permissions:
       issues: write
     steps:
+      - name: Find Comment
+        run: |
+          gh issue view --comments ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --json comments \
+            --jq '[.comments[] | select(.author.login == "github-actions")][0]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+      # @TODO: Provide link to cheeseshop or wheels?
       - name: Close issue
         if: contains(needs.*.result, 'success')
+        # @TODO: Can we do this on a locked convo?
         run: |
-          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
-            --comment 'Wheels built successfully.
-
-          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{github.run_id}} )'
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
       - name: Comment on issue
         if: |
           ! contains(needs.*.result , 'success')
+        # @TODO: Can it comment?
         run: |
-          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
-            --body 'Something went wrong.
-
-          See the run [here](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{github.run_id}})'
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}

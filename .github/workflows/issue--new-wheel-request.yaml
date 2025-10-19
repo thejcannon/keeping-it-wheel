@@ -22,11 +22,11 @@ jobs:
       contains(github.event.issue.labels.*.name, 'wheel-request')
       && contains(github.event.issue.body, 'https://pypi.org/project/')
     steps:
-      - name: Lock the Issue
-        run: |
-          gh issue lock ${{ github.event.issue.number }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
+          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
 
       - name: Get the URL/name/version
         id: info
@@ -35,27 +35,28 @@ jobs:
               echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
               echo "version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
           else
-              gh issue close \
+              gh issue close ${{ github.event.issue.number }} \
                   --comment "Couldn't find a PyPI URL in the issue body." \
-                  --reason "not planned" \
-                  ${{ github.event.issue.number }}
-              exit 1
+                  --reason "not planned"
+              gh issue lock ${{ github.event.issue.number }}
           fi
         env:
           GH_ISSUE_BODY: ${{ github.event.issue.body }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Edit the title
+        if: |
+          ! steps.info.outputs.name || ! steps.info.outputs.version
         run: |
-          gh issue edit \
-            --title "[Wheel Request] ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}" \
-            ${{ github.event.issue.number }}
+          gh issue edit ${{ github.event.issue.number }} \
+            --title "[Wheel Request] ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
 
       - name: Check for duplicates
+        id: duplicate_check
         run: |
           DUP_ISSUE_ID=$(gh issue list \
             --label "wheel-request" \
@@ -65,26 +66,29 @@ jobs:
           if [[ -n $DUP_ISSUE_ID ]]; then
             MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$GITHUB_EVENT_ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
             gh api graphql -f query="$MUTATION"
-            exit 1
+            gh issue lock ${{ github.event.issue.number }}
+            echo "is_duplicate=true" >> $GITHUB_OUTPUT
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_ISSUE_ID: ${{ github.event.issue.id }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{steps.info.outputs.version}}
 
       - name: Trigger workflow
+        if: |
+          ! steps.duplicate_check.outputs.is_duplicate
         run: |
-          gh workflow run \
-            dispatch--build-wheels.yaml \
+          gh workflow run dispatch--build-wheels.yaml \
             --ref ${GITHUB_REF} \
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
             -F issue_number=${GITHUB_EVENT_ISSUE_NUMBER}
           gh issue comment ${{ github.event.issue.number }} \
-            --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expet it soon." \
+            --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expet it soon."
+          gh issue lock ${{ github.event.issue.number }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
