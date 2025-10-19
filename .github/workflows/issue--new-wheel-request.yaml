@@ -22,6 +22,12 @@ jobs:
       contains(github.event.issue.labels.*.name, 'wheel-request')
       && contains(github.event.issue.body, 'https://pypi.org/project/')
     steps:
+      - name: Lock the Issue
+        run: |
+          gh issue lock ${{ github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Get the URL/name/version
         id: info
         run: |
@@ -42,7 +48,7 @@ jobs:
       - name: Edit the title
         run: |
           gh issue edit \
-            --title "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}" \
+            --title "[Wheel Request] ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}" \
             ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,9 +59,9 @@ jobs:
         run: |
           DUP_ISSUE_ID=$(gh issue list \
             --label "wheel-request" \
-            --search '"Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}"' \
+            --search '"[Wheel Request]: ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}"' \
             --json title,id \
-            --jq '.[] | select(.title == "Wheel Request: ${STEPS_INFO_OUTPUTS_NAME} - ${STEPS_INFO_OUTPUTS_VERSION}") | .id')
+            --jq '.[] | select(.title == "[Wheel Request]: ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}") | .id')
           if [[ -n $DUP_ISSUE_ID ]]; then
             MUTATION="mutation { closeIssue(input: {duplicateIssueId:\"$DUP_ISSUE_ID\",issueId:\"$GITHUB_EVENT_ISSUE_ID\",stateReason:DUPLICATE}) { clientMutationId } }"
             gh api graphql -f query="$MUTATION"
@@ -75,11 +81,11 @@ jobs:
             -F package_name=${STEPS_INFO_OUTPUTS_NAME} \
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
             -F issue_number=${GITHUB_EVENT_ISSUE_NUMBER}
-          gh issue comment \
-            --body ":hourglass_flowing_sand: Wheel request triggered" \
-            ${{ github.event.issue.number }}
+          gh issue comment ${{ github.event.issue.number }} \
+            --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expet it soon." \
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
+          # @TODO: Use Mr Wensleydale
