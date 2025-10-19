@@ -22,7 +22,7 @@ jobs:
       contains(github.event.issue.labels.*.name, 'wheel-request')
       && contains(github.event.issue.body, 'https://pypi.org/project/')
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
         with:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
