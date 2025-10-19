@@ -61,6 +61,7 @@ jobs:
       - name: Install build deps
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_REF: ${{ github.ref }}
         run: |
           python -m pip install --require-hashes $(
             curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/build-requirements.txt \
