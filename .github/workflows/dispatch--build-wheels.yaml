@@ -47,6 +47,16 @@ jobs:
         with:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
+
+      - name: Update issue with link
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+        run: |
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --edit-last \
+            --body ":hourglass_flowing_sand: It's uhh... [Still running](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}), sir."
+
       # [[[cog cog.include("steps/install-build-deps.yml") ]]]
       - name: Install build deps
         env:
@@ -166,8 +176,6 @@ jobs:
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
-    permissions:
-      contents: write
     steps:
       - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
@@ -198,29 +206,26 @@ jobs:
         with:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
-      # @TODO: Provide link to cheeseshop or wheels?
+
       - name: Report Success
         if: contains(needs.*.result, 'success')
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
-            --body '~:hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon.~
-
-              :white_check_mark: Ah! We have ${{ github.event.inputs.package_name }}, yessir.'
+            --body ':white_check_mark: Ah! We have ${{ github.event.inputs.package_name }}, yessir.'
           gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
             --reason completed
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+
       - name: Report Failure
         if: |
           ! contains(needs.*.result , 'success')
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
-            --body '~:hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon.~
-
-              :x: Normally, sir, we'd have that. But today the workflow run broke down.'
+            --body ':x: Normally, sir, we'd have that. But today the [workflow run](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}) broke down.'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
