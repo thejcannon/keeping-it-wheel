@@ -39,15 +39,18 @@ jobs:
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
-    permissions:
-      contents: write
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
+          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
       # [[[cog cog.include("steps/install-build-deps.yml") ]]]
       - name: Install build deps
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           python -m pip install --require-hashes $(
             curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/build-requirements.txt \
@@ -77,7 +80,7 @@ jobs:
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
           STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
@@ -92,7 +95,7 @@ jobs:
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
@@ -119,6 +122,11 @@ jobs:
           - macos-14
           # [[[end]]]
     steps:
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
+          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
       # [[[cog cog.include("steps/download-sdist.yml") ]]]
       - name: Download the sdist
         id: download-sdist
@@ -142,7 +150,7 @@ jobs:
 
       - name: Upload wheels to release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
           STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
@@ -161,10 +169,15 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
+          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
@@ -180,29 +193,34 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Find Comment
-        run: |
-          gh issue view --comments ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
-            --json comments \
-            --jq '[.comments[] | select(.author.login == "github-actions")][0]'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        id: app-token
+        with:
+          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
+          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
       # @TODO: Provide link to cheeseshop or wheels?
-      - name: Close issue
+      - name: Report Success
         if: contains(needs.*.result, 'success')
-        # @TODO: Can we do this on a locked convo?
         run: |
-          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}'
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --edit-last \
+            --body '~:hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon.~
+
+              :white_check_mark: Ah! We have ${{ github.event.inputs.package_name }}, yessir.'
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
+            --reason completed
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-      - name: Comment on issue
+      - name: Report Failure
         if: |
           ! contains(needs.*.result , 'success')
-        # @TODO: Can it comment?
         run: |
-          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}'
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --edit-last \
+            --body '~:hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon.~
+
+              :x: Normally, sir, we'd have that. But today the workflow run broke down.'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}

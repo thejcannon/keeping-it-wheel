@@ -30,6 +30,7 @@ jobs:
 
       - name: Get the URL/name/version
         id: info
+        # @TODO: Make this thematic
         run: |
           if [[ "$GH_ISSUE_BODY" =~ https://pypi\.org/project/([^/]+)/([^/]+)/? ]]; then
               echo "name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
@@ -46,7 +47,7 @@ jobs:
 
       - name: Edit the title
         if: |
-          ! steps.info.outputs.name || ! steps.info.outputs.version
+          steps.info.outputs.name && steps.info.outputs.version
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --title "[Wheel Request] ${STEPS_INFO_OUTPUTS_NAME} @ ${STEPS_INFO_OUTPUTS_VERSION}"
@@ -57,6 +58,8 @@ jobs:
 
       - name: Check for duplicates
         id: duplicate_check
+        if: |
+          steps.info.outputs.name && steps.info.outputs.version
         run: |
           DUP_ISSUE_ID=$(gh issue list \
             --label "wheel-request" \
@@ -85,11 +88,10 @@ jobs:
             -F package_version=${STEPS_INFO_OUTPUTS_VERSION} \
             -F issue_number=${GITHUB_EVENT_ISSUE_NUMBER}
           gh issue comment ${{ github.event.issue.number }} \
-            --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expet it soon."
+            --body ":hourglass_flowing_sand: Ah! It's beeeen on order, sir. Expect it soon."
           gh issue lock ${{ github.event.issue.number }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
           STEPS_INFO_OUTPUTS_NAME: ${{ steps.info.outputs.name }}
           STEPS_INFO_OUTPUTS_VERSION: ${{ steps.info.outputs.version }}
-          # @TODO: Use Mr Wensleydale
