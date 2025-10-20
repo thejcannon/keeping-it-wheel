@@ -3,7 +3,6 @@
     gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
       --edit-last \
       --body ':white_check_mark: Ah! We have ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}, yessir.'
-    gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
-      --reason completed
+    gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} --reason completed
   env:
     GH_TOKEN: ${{ steps.app-token.outputs.token }}
