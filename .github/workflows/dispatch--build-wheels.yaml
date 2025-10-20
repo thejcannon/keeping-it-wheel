@@ -31,6 +31,9 @@ on:
 
 env:
   GH_REPO: ${{ github.repository }}
+  GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+  GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+  GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
 
 permissions: {}
 
@@ -52,7 +55,6 @@ jobs:
       - name: Update issue with link
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
@@ -71,9 +73,6 @@ jobs:
       # [[[cog cog.include("steps/download-sdist.yaml") ]]]
       - name: Download the sdist
         id: download-sdist
-        env:
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
@@ -91,9 +90,7 @@ jobs:
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
         run: |
           gh release create \
@@ -106,9 +103,7 @@ jobs:
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
       # [[[end]]]
 
@@ -122,8 +117,6 @@ jobs:
             --reason completed
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
       # [[[end]]]
 
   build_wheels:
@@ -152,9 +145,6 @@ jobs:
       # [[[cog cog.include("steps/download-sdist.yaml") ]]]
       - name: Download the sdist
         id: download-sdist
-        env:
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: |
           pip download --no-deps --no-binary=:all: ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}==${GITHUB_EVENT_INPUTS_PACKAGE_VERSION}
           tarball=$(ls *.tar.gz)
@@ -173,8 +163,6 @@ jobs:
       - name: Upload wheels to release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
           STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
         run: |
           gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
@@ -198,9 +186,7 @@ jobs:
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-          GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
       # [[[end]]]
 
@@ -214,8 +200,6 @@ jobs:
             --reason completed
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
       # [[[end]]]
 
   comment-failure:
@@ -239,4 +223,3 @@ jobs:
             --body ":x: Normally, sir, we'd have that. But today the [workflow run](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}) broke down."
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}

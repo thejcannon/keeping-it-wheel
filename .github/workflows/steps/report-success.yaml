@@ -7,5 +7,3 @@
       --reason completed
   env:
     GH_TOKEN: ${{ steps.app-token.outputs.token }}
-    GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-    GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}

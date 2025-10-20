@@ -1,6 +1,4 @@
 - name: Publish release
   env:
-    GH_TOKEN: ${{ github.token }}
-    GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
-    GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
+    GH_TOKEN: ${{ steps.app-token.outputs.token }}
   run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
