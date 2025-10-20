@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Auth GH CLI
         run: |
-          gh extension install Link-/gh-token --pin 2ade42f7ba864fd34c076c14e3b1c14e0a3e26c1
+          GH_TOKEN=${{github.token}} gh extension install Link-/gh-token --pin 2ade42f7ba864fd34c076c14e3b1c14e0a3e26c1
           gh auth login --with-token <<< $(gh token generate \
               --base64-key $(printf "%s" ${{ secrets.MR_WENSLEYDALE_APP_PEM }} | base64) \
               --app-id ${{ vars.MR_WENSLEYDALE_APP_ID }} \
