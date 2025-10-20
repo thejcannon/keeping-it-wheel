@@ -27,13 +27,14 @@ on:
         required: true
       issue_number:
         description: "Issue number to respond to when complete"
-        required: false
+        required: true
 
 env:
   GH_REPO: ${{ github.repository }}
 
+permissions: {}
+
 jobs:
-  # @TODO: Add a job to add workflow URL to Mr. Wensleydale
   build_pure_wheel:
     name: Build pure Python wheel
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
@@ -57,18 +58,17 @@ jobs:
             --edit-last \
             --body ":hourglass_flowing_sand: It's uhh... [Still running](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}), sir."
 
-      # [[[cog cog.include("steps/install-build-deps.yml") ]]]
       - name: Install build deps
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/cibuildwheel-requirements.txt \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             > cibuildwheel-requirements.txt
           python -m pip install --require-hashes -r cibuildwheel-requirements.txt
           rm cibuildwheel-requirements.txt
-      # [[[end]]]
-      # [[[cog cog.include("steps/download-sdist.yml") ]]]
+
+      # [[[cog cog.include("steps/download-sdist.yaml") ]]]
       - name: Download the sdist
         id: download-sdist
         env:
@@ -91,7 +91,7 @@ jobs:
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
           STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
@@ -106,20 +106,31 @@ jobs:
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
-        # [[[end]]]
-        if: steps.check_pure.outputs.is_pure == 'true'
+      # [[[end]]]
+
+      # [[[cog cog.include("steps/report-success.yaml") ]]]
+      - name: Report Success
+        run: |
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --edit-last \
+            --body ':white_check_mark: Ah! We have ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}, yessir.'
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
+            --reason completed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+      # [[[end]]]
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     needs: [build_pure_wheel]
     if: needs.build_pure_wheel.outputs.is_pure != 'true'
-    permissions:
-      contents: write
     strategy:
       matrix:
         os:
@@ -138,7 +149,7 @@ jobs:
         with:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
-      # [[[cog cog.include("steps/download-sdist.yml") ]]]
+      # [[[cog cog.include("steps/download-sdist.yaml") ]]]
       - name: Download the sdist
         id: download-sdist
         env:
@@ -183,24 +194,37 @@ jobs:
         with:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
+
       # [[[cog cog.include("steps/publish-release.yaml") ]]]
       - name: Publish release
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
           GITHUB_EVENT_INPUTS_PACKAGE_VERSION: ${{ github.event.inputs.package_version }}
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
-        # [[[end]]]
+      # [[[end]]]
 
-  comment-on-issue:
-    name: Comment on Issue
+      # [[[cog cog.include("steps/report-success.yaml") ]]]
+      - name: Report Success
+        run: |
+          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
+            --edit-last \
+            --body ':white_check_mark: Ah! We have ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}, yessir.'
+          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
+            --reason completed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          GITHUB_EVENT_INPUTS_PACKAGE_NAME: ${{ github.event.inputs.package_name }}
+      # [[[end]]]
+
+  comment-failure:
+    name: Comment Failure
     needs: [build_pure_wheel, publish_release]
     # [[[cog cog.outl(f"runs-on: {UBUNTU_RUNNER}") ]]]
     runs-on: ubuntu-24.04
     # [[[end]]]
-    if: (success() || failure()) && github.event.inputs.issue_number
-    permissions:
-      issues: write
+    if: failure()
     steps:
       - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
         id: app-token
@@ -208,21 +232,7 @@ jobs:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
 
-      - name: Report Success
-        if: contains(needs.*.result, 'success')
-        run: |
-          gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
-            --edit-last \
-            --body ':white_check_mark: Ah! We have ${{ github.event.inputs.package_name }}, yessir.'
-          gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER}' \
-            --reason completed
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-
       - name: Report Failure
-        if: |
-          ! contains(needs.*.result , 'success')
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
