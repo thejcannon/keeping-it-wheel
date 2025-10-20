@@ -46,11 +46,15 @@ jobs:
     outputs:
       is_pure: ${{ steps.check_pure.outputs.is_pure }}
     steps:
-      - uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
-        id: app-token
-        with:
-          app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
-          private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
+      - name: Auth GH CLI
+        run: |
+          gh extension install Link-/gh-token --pin 2ade42f7ba864fd34c076c14e3b1c14e0a3e26c1
+          gh auth login --with-token <<< $(gh token generate \
+              --base64-key $(printf "%s" ${{ secrets.MR_WENSLEYDALE_APP_PEM }} | base64) \
+              --app-id ${{ vars.MR_WENSLEYDALE_APP_ID }} \
+              --installation-id ${{ vars.MR_WENSLEYDALE_INSTALLATION_ID }} \
+              | jq .token
+          )
 
       - name: Set auth token
         env:
@@ -145,11 +149,9 @@ jobs:
       - name: Upload wheels to release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH: ${{ steps.attestation.outputs.bundle-path }}
         run: |
           gh release upload ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} \
             dist/*.whl \
-            ${STEPS_ATTESTATION_OUTPUTS_BUNDLE_PATH} \
             --clobber
 
   publish_release:
