@@ -54,8 +54,8 @@ jobs:
 
       - name: Set auth token
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh auth login --with-token <<< $GH_TOKEN
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $TOKEN
 
       - name: Update issue with link
         run: |
@@ -196,8 +196,8 @@ jobs:
 
       - name: Set auth token
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh auth login --with-token <<< $GH_TOKEN
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $TOKEN
 
       - name: Report Failure
         run: |
