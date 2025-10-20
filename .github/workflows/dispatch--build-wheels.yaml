@@ -61,10 +61,9 @@ jobs:
       - name: Install build deps
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_REF: ${{ github.ref }}
         run: |
           python -m pip install --require-hashes $(
-            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${GITHUB_REF}/build-requirements.txt \
+            curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref }}/build-requirements.txt \
               -H "Authorization: token $GH_TOKEN"
           )
       # [[[end]]]
@@ -226,7 +225,7 @@ jobs:
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
-            --body ':x: Normally, sir, we'd have that. But today the [workflow run](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}) broke down.'
+            --body ":x: Normally, sir, we'd have that. But today the [workflow run](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}) broke down."
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_EVENT_INPUTS_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
