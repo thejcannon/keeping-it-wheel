@@ -56,11 +56,6 @@ jobs:
               | jq .token
           )
 
-      - name: Set auth token
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh auth login --with-token <<< $TOKEN
-
       - name: Update issue with link
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
