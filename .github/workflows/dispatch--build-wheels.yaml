@@ -52,17 +52,18 @@ jobs:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
 
-      - name: Update issue with link
+      - name: Set auth token
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $GH_TOKEN
+
+      - name: Update issue with link
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
             --body ":hourglass_flowing_sand: It's uhh... [Still running](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}), sir."
 
       - name: Install build deps
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           curl -sSL https://raw.githubusercontent.com/${{ github.repository }}/$GITHUB_REF/cibuildwheel-requirements.txt \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -90,7 +91,6 @@ jobs:
       # [[[cog cog.include("steps/make-release.yaml") ]]]
       - name: Make release
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           STEPS_DOWNLOAD_SDIST_OUTPUTS_TARBALL_HASH: ${{ steps.download-sdist.outputs.tarball-hash }}
         run: |
           gh release create \
@@ -166,9 +166,12 @@ jobs:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
 
-      - name: Publish release
+      - name: Set auth token
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $GH_TOKEN
+
+      - name: Publish release
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
 
       - name: Report Success
@@ -176,8 +179,6 @@ jobs:
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} --edit-last \
             --body ":white_check_mark: Ah! We have ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}, yessir."
           gh issue close ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} --reason completed
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
   report-failure:
     name: Report Failure
@@ -193,11 +194,14 @@ jobs:
           app-id: ${{ vars.MR_WENSLEYDALE_APP_ID }}
           private-key: ${{ secrets.MR_WENSLEYDALE_APP_PEM }}
 
+      - name: Set auth token
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $GH_TOKEN
+
       - name: Report Failure
         run: |
           gh issue comment ${GITHUB_EVENT_INPUTS_ISSUE_NUMBER} \
             --edit-last \
             --body ":x: Normally, sir, we'd have that. But today the [workflow run](https://github.com/thejcannon/keeping-it-wheel/actions/runs/${{ github.run_number }}) broke down."
         # @TODO: Should we close?
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
