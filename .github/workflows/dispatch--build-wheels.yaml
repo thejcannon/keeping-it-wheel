@@ -168,8 +168,8 @@ jobs:
 
       - name: Set auth token
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh auth login --with-token <<< $GH_TOKEN
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh auth login --with-token <<< $TOKEN
 
       - name: Publish release
         run: gh release edit ${GITHUB_EVENT_INPUTS_PACKAGE_NAME}-${GITHUB_EVENT_INPUTS_PACKAGE_VERSION} --draft=false
